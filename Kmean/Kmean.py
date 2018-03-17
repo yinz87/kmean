@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Mar 13 23:44:05 2018
-
 @author: yinz
+@version: 1.0
+K-means project
 """
-import re
+
 import math
 from pylab import *
 import numpy
