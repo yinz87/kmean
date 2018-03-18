@@ -19,11 +19,8 @@ class Kmeans(Frame):
         Frame.__init__(self,master)  #set up UI framework
         self.master = master
         self.dataPath = "null" #data location
-        self.centroid = [] #store set of centroids
-        self.cluster = [] #store k sets of tuples
         self.dataMaps = [] #store data location
-        
-        self.importFile = Button(master, text = "open data fileProcess", width = 50, command = self.importData) #UI button to call importData function to read data
+        self.importFile = Button(master, text = "open data file", width = 50, command = self.importData) #UI button to call importData function to read data
         self.importFile.grid(sticky = "w")
         
         self.processKMeans = Button(master, text = "K-Means Test", width = 50, command = self.KMeansTest) #UI button to call KmeansTest for cluster and centroids determination
@@ -38,33 +35,6 @@ class Kmeans(Frame):
         self.canvas.get_tk_widget().grid()
         self.canvas.show()
         
-    #randomly generated centroids based on k, range of data imported, O(15)
-    def getCentroids(self,k,xmax,xmin,ymax,ymin):
-        validated = False
-        # contiue if condition is not met
-        while validated == False:
-            #store generated distance between two centroids
-            conditionCheck = []
-            #randomly generated k number of x and y. The range of x and y are between smallest and largest x and y cooridate in the data set
-            initialx = numpy.random.uniform(low = xmin, high = xmax, size = k)
-            initialy = numpy.random.uniform(low = ymin, high = ymax, size = k)
-            #check Euclidean distance between any two centroids that are not the same and order does not matter, O(5)
-            for i in range (k):
-                # O(15)
-                for j in range (i+1,k):
-                    # check distacne in 2 decimal places between two centroids 
-                    distance = math.sqrt(math.pow((initialx[i] - initialx[j]), 2) + math.pow((initialy[i] - initialy[j]), 2))
-                    # add to a list
-                    conditionCheck.append(distance)
-            validated = True
-            # check for condition where the distance between all of two centorids should be greater than 0.5 unit, O(15)
-            for a in (conditionCheck):
-                if a < 0.5:
-                    validated = False
-        # store in a list
-        self.centroid = pd.DataFrame({"x":initialx, "y":initialy})
-        return self.centroid    
-        
     # obtain user input K value
     def getKValue(self):
         k = self.kValue.get().strip()
@@ -75,8 +45,8 @@ class Kmeans(Frame):
         self.dataPath = filedialog.askopenfilename(filetypes = [("csv file","*.csv")])
         self.dataPath = self.dataPath.replace("/","\\\\")
         return self.dataPath
-    
-    # validate the data to ensure proper format of data file
+
+     # validate the data to ensure proper format of data file
     def validateData(self):
         validated = True
         try:
@@ -86,16 +56,6 @@ class Kmeans(Frame):
         except ValueError:
             validated = False
         return validated
-    
-    # initiate centroid and get a list of centroid
-    def initCentroid(self,k):
-        xmax = max(self.dataMaps["x"])
-        ymax = max(self.dataMaps["y"])
-        xmin = min(self.dataMaps["x"])
-        ymin = min(self.dataMaps["y"])
-        self.centroid = self.getCentroids(k,xmax,xmin,ymax,ymin)
-        self.centroid = self.centroid.round(1)
-        return self.centroid
 
     # using the dataPath from getDataLoc() to retrive the data file and read the data into dataMaps list
     def importData(self):
@@ -117,16 +77,63 @@ class Kmeans(Frame):
             self.dataMaps = []
             messagebox.showerror ("Error", "please import data")
 
+    #randomly generated centroids based on k, range of data imported, O(15)
+    def getCentroids(self,k,xmax,xmin,ymax,ymin):
+        validated = False
+        # contiue if condition is not met
+        while validated == False:
+            #store generated distance between two centroids
+            conditionCheck = []
+            #randomly generated k number of x and y. The range of x and y are between smallest and largest x and y cooridate in the data set
+            initialx = numpy.random.uniform(low = xmin, high = xmax, size = k)
+            initialy = numpy.random.uniform(low = ymin, high = ymax, size = k)
+            #check Euclidean distance between any two centroids that are not the same and order does not matter
+            for i in range (k):
+                for j in range (i+1,k):
+                    # check distacne in 2 decimal places between two centroids 
+                    distance = math.sqrt(math.pow((initialx[i] - initialx[j]), 2) + math.pow((initialy[i] - initialy[j]), 2))
+                    # add to a list
+                    conditionCheck.append(distance)
+            validated = True
+            # check for condition where the distance between all of two centorids should be greater than 0.5 unit
+            for a in (conditionCheck):
+                if a < 0.5:
+                    validated = False
+        # store in a list
+        centroid = pd.DataFrame({"x":initialx, "y":initialy})
+        return centroid    
+      
+    # update and re-calcuate the centroids
+    def updateCentroid(self,k,cluster,centroid):
+        # check each centorid and update only if its corresponding list contain data
+        for i in range(len(centroid)):
+            temp = pd.DataFrame(cluster[i], columns = ['x','y'])
+            # check if the corresponding list is not empty
+            if len(temp['x']) != 0 or len(temp['y']) != 0:
+                # update x and y cooridate of the centroid by average all element in the list
+                centroid.loc[i]['x'] = temp['x'].sum()/len(temp['x'])
+                centroid.loc[i]['y'] = temp['y'].sum()/len(temp['y'])
+        return centroid
+
+    # initiate centroid and get a list of centroid
+    def initCentroid(self,k):
+        xmax = max(self.dataMaps["x"])
+        ymax = max(self.dataMaps["y"])
+        xmin = min(self.dataMaps["x"])
+        ymin = min(self.dataMaps["y"])
+        centroid = self.getCentroids(k,xmax,xmin,ymax,ymin).round(2)
+        return centroid
+
     # initalize k set of empty list in cluster list for data storage
     def initClusters(self,k):
-        self.cluster =[]
+        cluster =[]
         for i in range(k):
             # add set of empty list to cluster
-            self.cluster.append([])
-        return self.cluster
+            cluster.append([])
+        return cluster
     
     # compute, compare and categorize each data set based on distacne between each data set with centroid
-    def dataProcess(self,k):
+    def dataProcess(self,k,cluster,centroid):
         # for each set of dataMaps and centorid, measure Euclidean distance, O(n)
         for i in range(len(self.dataMaps)):
             compares = []
@@ -135,29 +142,16 @@ class Kmeans(Frame):
             dY = self.dataMaps.loc[i]['y']
             # loop for all centroids in the lis, O(5) 
             for j in range(k):
-                cX = self.centroid.loc[j]['x']
-                cY = self.centroid.loc[j]['y']
+                cX = centroid.loc[j]['x']
+                cY = centroid.loc[j]['y']
                 # caluate the distance using dX,dY,cX and xY
-                a = self.getDistance(dX,dY,cX,cY)
+                dist = self.getDistance(dX,dY,cX,cY)
                 # add each distance into a compare list
-                compares.append(a)
+                compares.append(dist)
             #find smallest distance and add to corresponding list
-            self.cluster[compares.index(min(compares))].append((dX,dY))
-        return self.cluster
-
-    # update and re-calcuate the centroids
-    def updateCentroid(self,k):
-        # check each centorid and update only if its corresponding list contain data
-        for i in range(len(self.centroid)):
-            temp = pd.DataFrame(self.cluster[i], columns = ['x','y'])
-            # check if the corresponding list is not empty
-            if len(temp['x']) != 0 or len(temp['y']) != 0:
-                # update x and y cooridate of the centroid by average all element in the list
-                self.centroid.loc[i]['x'] = temp['x'].sum()/len(temp['x'])
-                self.centroid.loc[i]['y'] = temp['y'].sum()/len(temp['y'])
-            # graphically show the updateing progress
-            self.scatterPlot(k)
-                
+            cluster[compares.index(min(compares))].append((dX,dY))
+        return cluster
+          
     # calculate Euclidean distance between centroid and data point
     def getDistance(self, dX,dY,cX,cY): 
         return math.sqrt(math.pow((dX - cX), 2) + math.pow((dY - cY), 2))
@@ -184,34 +178,32 @@ class Kmeans(Frame):
                 plt.scatter(self.dataMaps["x"],self.dataMaps["y"]) # plot all data point
                 self.canvas.draw() # display the scatter plot
             else:
-                self.initCentroid(k)  
-                self.initClusters(k)
+                centroid = self.initCentroid(k)  
                 converge = False
                 while converge == False:
-                    self.initClusters(k)
+                    cluster = self.initClusters(k)
                     # making a copy of the centroid
-                    oldCentroid = self.centroid.copy()
+                    oldCentroid = centroid.copy()
                     # process the data by adding data into list corresponding to its centroid
-                    self.dataProcess(k)
-                    self.updateCentroid(k)
+                    self.dataProcess(k,cluster,centroid)
+                    centroid = self.updateCentroid(k,cluster,centroid).round(2)
                     converge = True
                     # compair old centroid with updated centorid, if not equal continue process data and update centorid
-                    if oldCentroid.equals(self.centroid) != True:
+                    if oldCentroid.equals(centroid) != True:
                         converge = False
-    
+                self.scatterPlot(k,cluster,centroid)
+                
     # plot the data point and centroid with color and display the result
-    def scatterPlot(self,k):
+    def scatterPlot(self,k,cluster,centroid):
         # pre-define color
         color = ['red','green','grey','blue','purple','black']
         # clear graph
         plt.clf() 
-        m = 0
         # plot centroids and clusteres
-        while m < k:
-            plt.scatter( self.centroid["x"][m], self.centroid["y"][m],s = 150, c= (color[m]), marker = "+")
-            plt.scatter([i[0] for i in self.cluster[m]], [i[1] for i in self.cluster[m]], c =(color[m]))
-            m = m + 1
+        for m in range (k):
+            plt.scatter(centroid["x"][m], centroid["y"][m],s = 150, c= (color[m]), marker = "+")
+            plt.scatter([i[0] for i in cluster[m]], [i[1] for i in cluster[m]], c =(color[m]))
         self.canvas.draw() #display graph
-
+        
 c = Kmeans(Tk())
 c.mainloop()
