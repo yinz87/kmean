@@ -187,11 +187,12 @@ class Kmeans(Frame):
                     # process the data by adding data into list corresponding to its centroid
                     self.dataProcess(k,cluster,centroid)
                     centroid = self.updateCentroid(k,cluster,centroid).round(2)
+                    self.scatterPlot(k,cluster,centroid)
                     converge = True
                     # compair old centroid with updated centorid, if not equal continue process data and update centorid
                     if oldCentroid.equals(centroid) != True:
                         converge = False
-                self.scatterPlot(k,cluster,centroid)
+
                 
     # plot the data point and centroid with color and display the result
     def scatterPlot(self,k,cluster,centroid):
